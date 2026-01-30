@@ -11,14 +11,55 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    body { font-family: 'Inter', sans-serif; }
+    :root {
+      --app-height: 100%;
+      scrollbar-gutter: stable;
+    }
+    body { 
+      font-family: 'Inter', sans-serif; 
+      overscroll-behavior-y: contain; 
+      -webkit-tap-highlight-color: transparent;
+      text-rendering: optimizeLegibility;
+      -webkit-font-smoothing: antialiased;
+    }
     .hide-scrollbar::-webkit-scrollbar { display: none; }
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    /* Hardware Accelerated Animations */
     @keyframes slideUp {
-      from { transform: translateY(100%); opacity: 0; }
-      to { transform: translateY(0); opacity: 1; }
+      from { transform: translate3d(0, 20px, 0); opacity: 0; }
+      to { transform: translate3d(0, 0, 0); opacity: 1; }
     }
-    .animate-slide-up { animation: slideUp 0.3s ease-out forwards; }
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    .animate-slide-up { 
+      animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards; 
+      will-change: transform, opacity;
+    }
+    .animate-fade-in { 
+      animation: fadeIn 0.2s ease-out forwards; 
+      will-change: opacity;
+    }
+    
+    /* Skeleton Pulse */
+    .skeleton {
+      background: linear-gradient(90deg, #f0f0f0 25%, #f7f7f7 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: skeleton-loading 1.5s infinite;
+    }
+    .dark .skeleton {
+      background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+      background-size: 200% 100%;
+    }
+    @keyframes skeleton-loading {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* Prevent content jump */
+    main { min-height: calc(100vh - 128px); }
   </style>
 <script type="importmap">
 {
@@ -34,7 +75,7 @@
 }
 </script>
 </head>
-<body class="bg-gray-50 text-gray-900 transition-colors duration-300">
+<body class="bg-gray-50 text-gray-900 transition-colors duration-200">
   <div id="root"></div>
 </body>
 </html>

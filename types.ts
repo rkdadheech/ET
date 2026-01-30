@@ -2,6 +2,11 @@
 export type Language = 'en' | 'hi';
 export type Theme = 'light' | 'dark';
 
+export interface User {
+  name: string;
+  examType: 'Basic' | 'Senior';
+}
+
 export interface TranslationStrings {
   home: string;
   syllabus: string;
@@ -28,6 +33,25 @@ export interface TranslationStrings {
   pause: string;
   reset: string;
   totalStudyTime: string;
+  pomodoro: string;
+  stopwatch: string;
+  workSession: string;
+  breakTime: string;
+  logSession: string;
+  sessionComplete: string;
+  searchMaterialPlaceholder: string;
+  fetchingResources: string;
+  noResourcesFound: string;
+  onlineResources: string;
+  examCalendar: string;
+  login: string;
+  enterName: string;
+  selectExam: string;
+  startPreparation: string;
+  currentAffairs: string;
+  india: string;
+  rajasthan: string;
+  latestUpdates: string;
 }
 
 export interface ExamTopic {
@@ -36,6 +60,13 @@ export interface ExamTopic {
   titleHi: string;
   progress: number;
   subTopics: string[];
+}
+
+export interface ExamDate {
+  title: string;
+  date: string;
+  type: 'Basic' | 'Senior' | 'Other';
+  source: string;
 }
 
 export interface Question {
@@ -47,4 +78,25 @@ export interface Question {
   correctIndex: number;
   explanation: string;
   explanationHi: string;
+}
+
+export interface StudySession {
+  id: string;
+  timestamp: number;
+  duration: number; // seconds
+  mode: 'stopwatch' | 'pomodoro';
+}
+
+export interface QuizResult {
+  id: string;
+  timestamp: number;
+  score: number;
+  totalQuestions: number;
+  topic: string;
+}
+
+export interface SavedResource {
+  uri: string;
+  title: string;
+  timestamp: number;
 }
