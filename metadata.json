@@ -1,8 +1,5 @@
 {
   "name": "EDU TRICKER - Rajasthan Computer Instructor Exam Prep",
   "description": "A comprehensive, mobile-app-style educational platform for Rajasthan Basic and Senior Computer Instructor exam preparation, featuring dual-language support, mock tests, and syllabus tracking.",
-  "requestFramePermissions": [
-    "camera",
-    "microphone"
-  ]
+  "requestFramePermissions": []
 }

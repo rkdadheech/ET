@@ -7,17 +7,13 @@ import {
   Edit3, 
   Trophy, 
   User as UserIcon, 
-  Bell, 
   Moon, 
   Sun, 
   Languages, 
   Timer as TimerIcon,
   Play,
   Pause as PauseIcon,
-  RotateCcw,
   Minimize2,
-  Coffee,
-  Save,
   Loader2
 } from 'lucide-react';
 import { Language, Theme, TranslationStrings, StudySession, User } from './types';
@@ -55,31 +51,27 @@ export const useApp = () => {
   return context;
 };
 
-// Optimized Static Header
 const Header = React.memo(() => {
   const { lang, setLang, theme, toggleTheme, user } = useApp();
   const navigate = useNavigate();
   
   return (
-    <header className="sticky top-0 z-40 w-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border-b border-gray-100 dark:border-slate-800 transition-colors duration-200">
+    <header className="sticky top-0 z-40 w-full bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border-b border-gray-100 dark:border-slate-800">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
         <div className="flex items-center gap-2 cursor-pointer active:scale-95 transition-transform" onClick={() => navigate('/')}>
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold italic shadow-lg shadow-blue-500/20">ET</div>
+          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-bold italic">ET</div>
           <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent tracking-tight">EDU TRICKER</h1>
         </div>
         
         <div className="flex items-center gap-1 md:gap-3">
           <button 
             onClick={() => setLang(lang === 'en' ? 'hi' : 'en')}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl text-gray-600 dark:text-gray-300 flex items-center gap-1 transition-colors"
+            className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl text-gray-600 dark:text-gray-300 flex items-center gap-1"
           >
             <Languages size={18} />
             <span className="text-xs font-black uppercase">{lang}</span>
           </button>
-          <button 
-            onClick={toggleTheme}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl text-gray-600 dark:text-gray-300 transition-colors"
-          >
+          <button onClick={toggleTheme} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl text-gray-600 dark:text-gray-300">
             {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
           </button>
           {user && (
@@ -96,7 +88,6 @@ const Header = React.memo(() => {
   );
 });
 
-// Optimized Nav
 const BottomNav = React.memo(() => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -136,49 +127,60 @@ const BottomNav = React.memo(() => {
 });
 
 const StudyTimer = ({ onTick }: { onTick: (total: number) => void }) => {
-  const { t, logStudySession, user } = useApp();
+  const { logStudySession, user } = useApp();
   const [mode, setMode] = useState<'stopwatch' | 'pomodoro'>('stopwatch');
   const [seconds, setSeconds] = useState(0);
   const [isActive, setIsActive] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isBreak, setIsBreak] = useState(false);
   const timerRef = useRef<number | null>(null);
+  
+  // Track accumulated time in state to minimize localStorage writes
+  const sessionAccumulator = useRef(0);
 
   const WORK_TIME = 25 * 60;
   const BREAK_TIME = 5 * 60;
+
+  const syncToStorage = () => {
+    if (sessionAccumulator.current > 0) {
+      const currentTotal = parseInt(localStorage.getItem('totalStudySeconds') || '0', 10);
+      const newTotal = currentTotal + sessionAccumulator.current;
+      localStorage.setItem('totalStudySeconds', newTotal.toString());
+      onTick(newTotal);
+      sessionAccumulator.current = 0;
+    }
+  };
 
   useEffect(() => {
     if (isActive) {
       timerRef.current = window.setInterval(() => {
         if (mode === 'stopwatch') {
           setSeconds(prev => prev + 1);
-          updateCumulativeTime(1);
+          sessionAccumulator.current += 1;
         } else {
           setSeconds(prev => {
             if (prev <= 1) {
               handleSessionComplete();
               return 0;
             }
-            if (!isBreak) updateCumulativeTime(1);
+            if (!isBreak) sessionAccumulator.current += 1;
             return prev - 1;
           });
         }
       }, 1000);
-    } else if (timerRef.current) {
-      clearInterval(timerRef.current);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
+      syncToStorage();
     }
-    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+    return () => { 
+      if (timerRef.current) clearInterval(timerRef.current); 
+      syncToStorage();
+    };
   }, [isActive, mode, isBreak]);
-
-  const updateCumulativeTime = (increment: number) => {
-    const currentTotal = parseInt(localStorage.getItem('totalStudySeconds') || '0', 10);
-    const newTotal = currentTotal + increment;
-    localStorage.setItem('totalStudySeconds', newTotal.toString());
-    onTick(newTotal);
-  };
 
   const handleSessionComplete = () => {
     setIsActive(false);
+    syncToStorage();
     if (!isBreak) {
       logStudySession(WORK_TIME, 'pomodoro');
       setIsBreak(true);
@@ -210,13 +212,13 @@ const StudyTimer = ({ onTick }: { onTick: (total: number) => void }) => {
             <div className="flex items-center justify-between">
               <div className="flex gap-2">
                 <button 
-                  onClick={() => {setMode('stopwatch'); setSeconds(0); setIsActive(false);}}
+                  onClick={() => {setMode('stopwatch'); setSeconds(0); setIsActive(false); syncToStorage();}}
                   className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg transition-all ${mode === 'stopwatch' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-400'}`}
                 >
                   STW
                 </button>
                 <button 
-                  onClick={() => {setMode('pomodoro'); setSeconds(WORK_TIME); setIsActive(false);}}
+                  onClick={() => {setMode('pomodoro'); setSeconds(WORK_TIME); setIsActive(false); syncToStorage();}}
                   className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg transition-all ${mode === 'pomodoro' ? 'bg-indigo-600 text-white shadow-lg' : 'text-gray-400'}`}
                 >
                   PMD
@@ -230,7 +232,7 @@ const StudyTimer = ({ onTick }: { onTick: (total: number) => void }) => {
               </span>
             </div>
             <div className="flex items-center justify-center gap-3">
-              <button onClick={() => isActive(!isActive)} className={`p-4 rounded-2xl shadow-lg transition-all active:scale-95 ${isActive ? 'bg-amber-100 text-amber-600' : 'bg-blue-600 text-white'}`}>
+              <button onClick={() => setIsActive(!isActive)} className={`p-4 rounded-2xl shadow-lg transition-all active:scale-95 ${isActive ? 'bg-amber-100 text-amber-600' : 'bg-blue-600 text-white'}`}>
                 {isActive ? <PauseIcon size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
               </button>
             </div>
@@ -291,7 +293,7 @@ export default function App() {
           <Suspense fallback={
             <div className="h-[60vh] flex flex-col items-center justify-center gap-4 text-blue-600">
               <Loader2 className="animate-spin" size={40} />
-              <span className="text-xs font-black uppercase tracking-widest animate-pulse">Loading Platform...</span>
+              <span className="text-xs font-black uppercase tracking-widest animate-pulse">Syncing...</span>
             </div>
           }>
             <Routes>

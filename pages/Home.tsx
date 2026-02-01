@@ -1,12 +1,11 @@
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Search, 
   Bell, 
   Clock, 
   Zap, 
   Book, 
-  FileText, 
   BarChart, 
   Sparkles, 
   MessageCircle, 
@@ -25,6 +24,9 @@ import { useApp } from '../App';
 import { GoogleGenAI } from "@google/genai";
 import { useNavigate } from 'react-router-dom';
 
+const CACHE_KEY = 'exam_date_cache';
+const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+
 const HomePage: React.FC = () => {
   const { t, lang, user } = useApp();
   const navigate = useNavigate();
@@ -39,7 +41,6 @@ const HomePage: React.FC = () => {
   const [officialSource, setOfficialSource] = useState<string | null>(null);
   const [activeNotifications, setActiveNotifications] = useState<string[]>([]);
 
-  // Check for upcoming reminders (3 days before)
   useEffect(() => {
     const checkReminders = () => {
       const savedReminders = JSON.parse(localStorage.getItem('examReminders') || '[]');
@@ -54,6 +55,19 @@ const HomePage: React.FC = () => {
 
   useEffect(() => {
     const fetchExamDate = async () => {
+      // Check Cache first
+      const cachedData = localStorage.getItem(CACHE_KEY);
+      if (cachedData) {
+        const { dateStr, source, timestamp } = JSON.parse(cachedData);
+        if (Date.now() - timestamp < CACHE_DURATION) {
+          const diff = Math.ceil((new Date(dateStr).getTime() - Date.now()) / (1000 * 3600 * 24));
+          setDaysLeft(diff > 0 ? diff : 0);
+          setOfficialSource(source);
+          setIsFetchingDate(false);
+          return;
+        }
+      }
+
       try {
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const response = await ai.models.generateContent({
@@ -63,12 +77,27 @@ const HomePage: React.FC = () => {
         });
         const dateMatch = response.text?.match(/\d{4}-\d{2}-\d{2}/);
         if (dateMatch) {
-          const diff = Math.ceil((new Date(dateMatch[0]).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
+          const dateStr = dateMatch[0];
+          const source = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.[0]?.web?.uri || null;
+          const diff = Math.ceil((new Date(dateStr).getTime() - Date.now()) / (1000 * 3600 * 24));
+          
           setDaysLeft(diff > 0 ? diff : 0);
-          setOfficialSource(response.candidates?.[0]?.groundingMetadata?.groundingChunks?.[0]?.web?.uri || null);
-        } else setDaysLeft(42);
-      } catch (e) { setDaysLeft(42); }
-      finally { setIsFetchingDate(false); }
+          setOfficialSource(source);
+
+          // Save to Cache
+          localStorage.setItem(CACHE_KEY, JSON.stringify({
+            dateStr,
+            source,
+            timestamp: Date.now()
+          }));
+        } else {
+          setDaysLeft(42);
+        }
+      } catch (e) { 
+        setDaysLeft(42); 
+      } finally { 
+        setIsFetchingDate(false); 
+      }
     };
     fetchExamDate();
   }, []);
@@ -100,7 +129,6 @@ const HomePage: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Dynamic Notifications Banner */}
       {activeNotifications.length > 0 && (
         <section className="animate-slide-up">
           <div 
@@ -110,11 +138,8 @@ const HomePage: React.FC = () => {
             <div className="p-2 bg-red-600 text-white rounded-xl animate-pulse">
               <AlertTriangle size={20} />
             </div>
-            <div className="flex-1">
-              <p className="text-xs font-black uppercase tracking-widest text-red-600 mb-1">Urgent Reminder</p>
-              <p className="text-sm font-bold text-red-900 dark:text-red-100 leading-tight">
-                {activeNotifications[0]}
-              </p>
+            <div className="flex-1 text-sm font-bold text-red-900 dark:text-red-100 leading-tight">
+              {activeNotifications[0]}
             </div>
             <ChevronRight size={20} className="text-red-400" />
           </div>
@@ -129,7 +154,7 @@ const HomePage: React.FC = () => {
             </h2>
             <p className="text-gray-500 text-xs font-bold uppercase tracking-wider">{user?.examType} Instructor Preparation</p>
           </div>
-          <button className="p-2.5 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl relative shadow-sm active:scale-90 transition-transform">
+          <button className="p-2.5 bg-white dark:bg-slate-900 border border-gray-100 dark:border-slate-800 rounded-2xl relative shadow-sm">
             <Bell size={20} className="text-gray-400" />
             <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
           </button>
@@ -139,7 +164,7 @@ const HomePage: React.FC = () => {
           <input 
             type="text" 
             placeholder={t('searchPlaceholder')}
-            className="w-full pl-11 pr-4 py-3.5 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl shadow-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow text-sm"
+            className="w-full pl-11 pr-4 py-3.5 bg-white dark:bg-slate-900 border border-gray-200 dark:border-slate-800 rounded-2xl outline-none text-sm"
           />
         </div>
       </section>
@@ -182,8 +207,8 @@ const HomePage: React.FC = () => {
           { icon: Zap, color: 'bg-amber-100 text-amber-600', path: '/daily-quiz', label: 'Quiz' },
           { icon: BarChart, color: 'bg-green-100 text-green-600', path: '/results', label: 'Results' }
         ].map((item, i) => (
-          <button key={i} onClick={() => navigate(item.path)} className="flex flex-col items-center gap-2 group active:scale-90 transition-transform">
-            <div className={`p-4 rounded-2xl ${item.color} dark:bg-slate-800 transition-shadow group-hover:shadow-lg`}>
+          <button key={i} onClick={() => navigate(item.path)} className="flex flex-col items-center gap-2 active:scale-90 transition-transform">
+            <div className={`p-4 rounded-2xl ${item.color} dark:bg-slate-800 transition-shadow`}>
               <item.icon size={22} />
             </div>
             <span className="text-[10px] font-black uppercase tracking-tighter text-gray-500">{item.label}</span>
